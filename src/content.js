@@ -29,6 +29,7 @@ const onLoadSetup = () => {
     }
 
     setToolbarButton();
+    setEyeIconOnThread();
     onFilterHTMLContent();
 
     clearInterval(initialInterval);
@@ -261,3 +262,17 @@ const onLoadGmailThread = (item) => {
 };
 
 /************ Ending Load Gmail Threads Module ************/
+
+/************ Starting Setting Eye Icon Module ************/
+
+const setEyeIconOnThread = () => {
+  if ($("[data-inboxsdk-thread-row='true']")) {
+    $("[data-inboxsdk-thread-row='true'] > .bq4.xY > .bqY").prepend(
+      `<li class="bqX brq eyeIcon" data-tooltip="Full Content">
+
+      </li>`
+    );
+  }
+};
+
+/************ Ending Setting Eye Icon Module ************/
