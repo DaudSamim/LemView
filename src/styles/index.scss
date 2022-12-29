@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .listPopupItem {
   padding: 10px;
   transition: all 0.3s;
@@ -8,3 +9,15 @@
     border-radius: 8px;
   }
 }
+=======
+.listPopupItem {
+  padding: 10px;
+  transition: all 0.3s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgb(231, 230, 230);
+    border-radius: 8px;
+  }
+}
+>>>>>>> 017e7cbbd3fb712217100181d3487a164aea127c
