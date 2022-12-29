@@ -1,0 +1,10 @@
+.listPopupItem {
+  padding: 10px;
+  transition: all 0.3s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgb(231, 230, 230);
+    border-radius: 8px;
+  }
+}
