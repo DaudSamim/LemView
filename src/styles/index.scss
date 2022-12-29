@@ -8,3 +8,16 @@
     border-radius: 8px;
   }
 }
+
+.removeFlex {
+  display: block !important;
+}
+
+.addFlex {
+  display: flex !important;
+}
+
+.messageText {
+  margin: 0%;
+  white-space: normal;
+}

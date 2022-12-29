@@ -4,6 +4,12 @@ import "./styles/index.scss";
 import { DROPDOWN_ITEMS } from "./constants";
 import { getThreadEndpoint } from "./api/endpoints/gmail";
 import parse from "parse-email";
+import {
+  getSelectedItem,
+  getThreadContent,
+  setSelectedItem,
+  setThreadContent,
+} from "./localStorage";
 
 window.setImmediate = window.setTimeout;
 
@@ -12,20 +18,24 @@ const threadIdArray = [];
 InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
   onLoadSetup();
   getAllThreadIds(sdk.Lists);
-
-  const getEmailResponse = await onGetThreadMessage();
-
-  const response = await parse(getEmailResponse);
-
-  console.log(response, "email parser");
 });
 
+/************ Start Load Initial Setup Module ************/
+
 const onLoadSetup = () => {
-  const findToolbarContainer = setInterval(() => {
+  const initialInterval = setInterval(() => {
+    if (!getSelectedItem()) {
+      setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
+    }
+
     setToolbarButton();
-    clearInterval(findToolbarContainer);
+    onFilterHTMLContent();
+
+    clearInterval(initialInterval);
   }, 500);
 };
+
+/************ End Load Initial Setup Module ************/
 
 /************ Start Toolbar Button Module ************/
 
@@ -88,26 +98,7 @@ const onListPopupClose = () => {
 
 const onSelectListItem = (e) => {
   let item = e.currentTarget.innerText;
-
-  if (item === DROPDOWN_ITEMS.ITEM_ONE) {
-    console.log("None");
-    onListPopupClose();
-  }
-
-  if (item === DROPDOWN_ITEMS.ITEM_TWO) {
-    console.log("One Line");
-    onListPopupClose();
-  }
-
-  if (item === DROPDOWN_ITEMS.ITEM_THREE) {
-    console.log("Two Line");
-    onListPopupClose();
-  }
-
-  if (item === DROPDOWN_ITEMS.ITEM_FOUR) {
-    console.log("Three Line");
-    onListPopupClose();
-  }
+  onLoadGmailThread(item);
 };
 
 /************ Ending Toolbar Button Module ************/
@@ -122,15 +113,151 @@ const getAllThreadIds = (list) => {
 
 /************ Ending Get all Thread Ids Module ************/
 
+/************ Start Filter HTML Content Module ************/
+
+const onFilterHTMLContent = () => {
+  if (threadIdArray.length > 0) {
+    threadIdArray.map((item) => {
+      if (item !== getThreadContent(item)?.id) {
+        setTimeout(async () => {
+          const getEmailResponse = await onGetThreadMessage(item);
+          const response = await parse(getEmailResponse);
+
+          let obj = {
+            id: item,
+            content: HTMLBodyParser(response.html),
+            html: response.html,
+          };
+
+          setThreadContent(item, obj);
+          injectClasses(getSelectedItem());
+        }, 2000);
+      }
+    });
+  }
+};
+
+/************ Ending Filter HTML Content Module ************/
+
 /************ Starting Gmail API Module ************/
 
 const onGetThreadMessage = async (threadId) => {
-  const response = await getThreadEndpoint("185587b33ad9d0cb");
+  const response = await getThreadEndpoint(threadId);
   if (response.status === 200) {
     return response.data;
   }
 };
 
-// "185587b33ad9d0cb"
-
 /************ Ending Gmail API Module ************/
+
+/************ Starting Inject CSS Classes Module ************/
+
+const injectClasses = (selectedItem) => {
+  document.querySelectorAll("[role='link'] > .xT").forEach((threadRow) => {
+    let messageId = threadRow
+      .querySelector("[data-legacy-thread-id]")
+      .getAttribute("data-legacy-thread-id");
+
+    let messageParagraph = threadRow.querySelector(".y2");
+
+    if (selectedItem === DROPDOWN_ITEMS.ITEM_ONE) {
+      $("[role='link'] > .xT").removeClass("removeFlex");
+      $("[role='link'] > .xT").addClass("addFlex");
+
+      messageParagraph.innerHTML = `
+          <span class="Zt">&nbsp;-&nbsp;</span>
+            ${getThreadContent(messageId)?.content}
+          `;
+    }
+
+    if (selectedItem === DROPDOWN_ITEMS.ITEM_TWO) {
+      $("[role='link'] > .xT").removeClass("addFlex");
+      $("[role='link'] > .xT").addClass("removeFlex");
+
+      messageParagraph.setAttribute("style", "display: block; margin-top: 5px");
+      messageParagraph.innerHTML = `
+          <p class="messageText">${getThreadContent(messageId)?.content.slice(
+            0,
+            108
+          )}</p>
+        `;
+    }
+
+    if (selectedItem === DROPDOWN_ITEMS.ITEM_THREE) {
+      $("[role='link'] > .xT").removeClass("addFlex");
+      $("[role='link'] > .xT").addClass("removeFlex");
+
+      messageParagraph.setAttribute("style", "display: block; margin-top: 5px");
+      messageParagraph.innerHTML = `
+          <p class="messageText">${getThreadContent(messageId)?.content.slice(
+            0,
+            220
+          )}</p>
+        `;
+    }
+
+    if (selectedItem === DROPDOWN_ITEMS.ITEM_FOUR) {
+      $("[role='link'] > .xT").removeClass("addFlex");
+      $("[role='link'] > .xT").addClass("removeFlex");
+
+      messageParagraph.setAttribute("style", "display: block; margin-top: 5px");
+      messageParagraph.innerHTML = `
+          <p class="messageText">${getThreadContent(messageId)?.content.slice(
+            0,
+            345
+          )}</p>
+        `;
+    }
+  });
+};
+
+/************ Ending Inject CSS Classes Module ************/
+
+/************ Starting HTML Body Parser Module ************/
+
+const HTMLBodyParser = (content) => {
+  const parser = new DOMParser();
+  const documentObj = parser.parseFromString(content, "text/html");
+
+  return documentObj
+    .querySelector("body")
+    .textContent.normalize()
+    .trim()
+    .replace(/\s{2,}/g, " ");
+};
+
+/************ Ending HTML Body Parser Module ************/
+
+/************ Starting Load Gmail Threads Module ************/
+
+const onLoadGmailThread = (item) => {
+  if (item === DROPDOWN_ITEMS.ITEM_ONE) {
+    console.log("None");
+    onListPopupClose();
+    setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
+    injectClasses(DROPDOWN_ITEMS.ITEM_ONE);
+  }
+
+  if (item === DROPDOWN_ITEMS.ITEM_TWO) {
+    console.log("One Line");
+    onListPopupClose();
+    setSelectedItem(DROPDOWN_ITEMS.ITEM_TWO);
+    injectClasses(DROPDOWN_ITEMS.ITEM_TWO);
+  }
+
+  if (item === DROPDOWN_ITEMS.ITEM_THREE) {
+    console.log("Two Line");
+    onListPopupClose();
+    setSelectedItem(DROPDOWN_ITEMS.ITEM_THREE);
+    injectClasses(DROPDOWN_ITEMS.ITEM_THREE);
+  }
+
+  if (item === DROPDOWN_ITEMS.ITEM_FOUR) {
+    console.log("Three Line");
+    onListPopupClose();
+    setSelectedItem(DROPDOWN_ITEMS.ITEM_FOUR);
+    injectClasses(DROPDOWN_ITEMS.ITEM_FOUR);
+  }
+};
+
+/************ Starting Load Gmail Threads Module ************/
