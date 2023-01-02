@@ -30,6 +30,7 @@ const onLoadSetup = () => {
     }
 
     setToolbarButton();
+    addEmailPreview();
     onFilterHTMLContent();
 
     clearInterval(initialInterval);
@@ -140,7 +141,10 @@ const getAllThreadIds = (list) => {
 const onFilterHTMLContent = () => {
   if (threadIdArray.length > 0) {
     threadIdArray.map((item) => {
-      if (item !== getThreadContent(item)?.id) {
+      if (
+        item !== getThreadContent(item)?.id ||
+        getThreadContent(item)?.content !== false
+      ) {
         setTimeout(async () => {
           const getEmailResponse = await onGetThreadMessage(item);
           const response = await parse(getEmailResponse);
@@ -184,8 +188,6 @@ const injectClasses = (selectedItem) => {
       threadRow.setAttribute("style", "position: relative;");
 
       let messageParagraph = threadRow.querySelector(".y2");
-
-      let eyeIcon = threadRow.querySelector(".bqX.inboxsdk__thread_row_button");
 
       if (selectedItem === DROPDOWN_ITEMS.ITEM_ONE) {
         $("[role='link'] > .xT").removeClass("removeFlex");
@@ -263,7 +265,7 @@ const injectClasses = (selectedItem) => {
           <p class="messageText">
           ${
             getThreadContent(messageId)
-              ? getThreadContent(messageId).content === "false"
+              ? !getThreadContent(messageId).content
                 ? "Preview not available..."
                 : HTMLBodyParser(getThreadContent(messageId).content).slice(
                     0,
@@ -274,30 +276,50 @@ const injectClasses = (selectedItem) => {
           </p>
         `;
       }
+    });
+};
 
-      eyeIcon.addEventListener("mouseenter", (e) => {
-        e.currentTarget.setAttribute("style", "position: static;");
+/************ Ending Inject CSS Classes Module ************/
+
+const addEmailPreview = () => {
+  document
+    .querySelectorAll("[data-inboxsdk-thread-row='true']")
+    .forEach((threadRow) => {
+      let messageId = threadRow
+        .querySelector("[data-legacy-thread-id]")
+        .getAttribute("data-legacy-thread-id");
+
+      let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
+
+      eyeIcon.addEventListener("mouseover", (e) => {
+        e.currentTarget.setAttribute("style", "position: relative;");
         e.currentTarget.innerHTML = `
           <div class="inboxsdk__button_icon">
-            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672324759/binoculars_qvkgjx.png">
+            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
           </div>
-          <div class="iframeContainer">
-            ${getThreadContent(messageId).content}
+          <div class="iframeContainer" style="width: ${
+            threadRow.clientWidth - 48
+          }px; left: -${threadRow.clientWidth - 200}px">
+            ${
+              getThreadContent(messageId)
+                ? !getThreadContent(messageId).content
+                  ? "Preview not available..."
+                  : getThreadContent(messageId).content
+                : "Loading..."
+            }
           </div>
         `;
       });
 
-      eyeIcon.addEventListener("mouseleave", (e) => {
+      eyeIcon.addEventListener("mouseout", (e) => {
         e.currentTarget.innerHTML = `
           <div class="inboxsdk__button_icon">
-            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672324759/binoculars_qvkgjx.png">
+            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
           </div>
         `;
       });
     });
 };
-
-/************ Ending Inject CSS Classes Module ************/
 
 /************ Starting HTML Body Parser Module ************/
 
@@ -360,9 +382,9 @@ const onLoadGmailThread = (item) => {
 const setEyeIconOnThread = (list) => {
   list.registerThreadRowViewHandler((list) => {
     list.addButton({
-      title: "See full content",
+      title: "Preview Email",
       iconUrl:
-        "https://res.cloudinary.com/the-fastech/image/upload/v1672324759/binoculars_qvkgjx.png",
+        "https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png",
     });
   });
 };
