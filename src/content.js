@@ -14,6 +14,7 @@ import {
 window.setImmediate = window.setTimeout;
 
 const threadIdArray = [];
+var localStorageData = [];
 
 var request_counter = 0;
 var settimeout_for_request_counter_reset = null;
@@ -27,13 +28,31 @@ InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
 /************ Start Load Initial Setup Module ************/
 
 const onLoadSetup = () => {
+  setInterval(() => {
+    var temp_thread_id = document
+      .querySelector("span[data-legacy-thread-id]")
+      .getAttribute("data-legacy-thread-id");
+    if (!localStorage.getItem("First_thread_id")) {
+      // First Thread ID on the page
+      if (temp_thread_id != localStorage.getItem("First_thread_id")) {
+        localStorage.setItem("First_thread_id", temp_thread_id);
+      }
+    } else if (localStorage.getItem("First_thread_id") != temp_thread_id) {
+      var temp_selectedItem = localStorage.getItem("selectedItem");
+      localStorage.clear();
+      localStorage.setItem("selectedItem", temp_selectedItem);
+      onFilterHTMLContent();
+      localStorage.setItem("First_thread_id", temp_thread_id);
+    }
+  }, 1000);
+
   const initialInterval = setInterval(() => {
     if (!getSelectedItem()) {
       setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
     }
 
     setToolbarButton();
-    addEmailPreview();
+
     onFilterHTMLContent();
 
     clearInterval(initialInterval);
@@ -143,7 +162,7 @@ const getAllThreadIds = (list) => {
 
 const onFilterHTMLContent = () => {
   if (threadIdArray.length > 0) {
-    threadIdArray.map((item) => {
+    threadIdArray.map((item, index) => {
       var timeout = 130 * request_counter;
       fn_increase_request_counter();
       fn_reset_request_counter();
@@ -159,8 +178,11 @@ const onFilterHTMLContent = () => {
             content: bodyParser(response.html),
           };
 
-          setThreadContent(item, obj);
+          localStorageData.push(obj);
           injectClasses(getSelectedItem());
+          if (index == threadIdArray.length - 1) {
+            addEmailPreview();
+          }
         }
       }, timeout);
     });
@@ -193,6 +215,9 @@ const injectClasses = (selectedItem) => {
       threadRow.setAttribute("style", "position: relative;");
 
       let messageParagraph = threadRow.querySelector(".y2");
+      var result = localStorageData.find((obj) => {
+        return obj.id === messageId;
+      });
 
       if (selectedItem === DROPDOWN_ITEMS.ITEM_ONE) {
         $("[role='link'] > .xT").removeClass("removeFlex");
@@ -201,10 +226,10 @@ const injectClasses = (selectedItem) => {
         messageParagraph.innerHTML = `
           <span class="Zt">&nbsp;-&nbsp;</span>
             ${
-              getThreadContent(messageId)
-                ? getThreadContent(messageId).content === "false"
+              result
+                ? result.content === "false"
                   ? "Preview not available..."
-                  : HTMLBodyParser(getThreadContent(messageId).content)
+                  : HTMLBodyParser(result.content)
                 : "Loading..."
             }
           `;
@@ -221,13 +246,10 @@ const injectClasses = (selectedItem) => {
         messageParagraph.innerHTML = `
           <p class="messageText">
           ${
-            getThreadContent(messageId)
-              ? getThreadContent(messageId).content === "false"
+            result
+              ? result.content === "false"
                 ? "Preview not available..."
-                : HTMLBodyParser(getThreadContent(messageId).content).slice(
-                    0,
-                    108
-                  )
+                : HTMLBodyParser(result.content).slice(0, 108)
               : "Loading..."
           }
           </p>
@@ -245,13 +267,10 @@ const injectClasses = (selectedItem) => {
         messageParagraph.innerHTML = `
           <p class="messageText">
           ${
-            getThreadContent(messageId)
-              ? getThreadContent(messageId).content === "false"
+            result
+              ? result.content === "false"
                 ? "Preview not available..."
-                : HTMLBodyParser(getThreadContent(messageId).content).slice(
-                    0,
-                    220
-                  )
+                : HTMLBodyParser(result.content).slice(0, 220)
               : "Loading..."
           }
           </p>
@@ -269,13 +288,10 @@ const injectClasses = (selectedItem) => {
         messageParagraph.innerHTML = `
           <p class="messageText">
           ${
-            getThreadContent(messageId)
-              ? !getThreadContent(messageId).content
+            result
+              ? !result.content
                 ? "Preview not available..."
-                : HTMLBodyParser(getThreadContent(messageId).content).slice(
-                    0,
-                    345
-                  )
+                : HTMLBodyParser(result.content).slice(0, 345)
               : "Loading..."
           }
           </p>
@@ -296,6 +312,10 @@ const addEmailPreview = () => {
 
       let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
 
+      var result = localStorageData.find((obj) => {
+        return obj.id === messageId;
+      });
+
       eyeIcon.addEventListener("mouseover", (e) => {
         e.currentTarget.setAttribute("style", "position: relative;");
         e.currentTarget.innerHTML = `
@@ -306,10 +326,10 @@ const addEmailPreview = () => {
             threadRow.clientWidth - 48
           }px; left: -${threadRow.clientWidth - 200}px">
             ${
-              getThreadContent(messageId)
-                ? getThreadContent(messageId).content === "false"
+              result
+                ? result.content === "false"
                   ? "Preview not available..."
-                  : getThreadContent(messageId).content
+                  : result.content
                 : "Loading..."
             }
           </div>
@@ -352,28 +372,24 @@ const bodyParser = (content) => {
 
 const onLoadGmailThread = (item) => {
   if (item === DROPDOWN_ITEMS.ITEM_ONE) {
-    console.log("None");
     onListPopupClose();
     setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
     injectClasses(DROPDOWN_ITEMS.ITEM_ONE);
   }
 
   if (item === DROPDOWN_ITEMS.ITEM_TWO) {
-    console.log("One Line");
     onListPopupClose();
     setSelectedItem(DROPDOWN_ITEMS.ITEM_TWO);
     injectClasses(DROPDOWN_ITEMS.ITEM_TWO);
   }
 
   if (item === DROPDOWN_ITEMS.ITEM_THREE) {
-    console.log("Two Line");
     onListPopupClose();
     setSelectedItem(DROPDOWN_ITEMS.ITEM_THREE);
     injectClasses(DROPDOWN_ITEMS.ITEM_THREE);
   }
 
   if (item === DROPDOWN_ITEMS.ITEM_FOUR) {
-    console.log("Three Line");
     onListPopupClose();
     setSelectedItem(DROPDOWN_ITEMS.ITEM_FOUR);
     injectClasses(DROPDOWN_ITEMS.ITEM_FOUR);
