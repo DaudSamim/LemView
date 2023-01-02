@@ -141,10 +141,7 @@ const getAllThreadIds = (list) => {
 const onFilterHTMLContent = () => {
   if (threadIdArray.length > 0) {
     threadIdArray.map((item) => {
-      if (
-        item !== getThreadContent(item)?.id ||
-        getThreadContent(item)?.content !== false
-      ) {
+      if (item !== getThreadContent(item)?.id) {
         setTimeout(async () => {
           const getEmailResponse = await onGetThreadMessage(item);
           const response = await parse(getEmailResponse);
