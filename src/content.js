@@ -1,7 +1,7 @@
 import * as InboxSDK from "@inboxsdk/core";
 import $ from "jquery";
 import "./styles/index.scss";
-import { BASE_GMAIL_LINK, DROPDOWN_ITEMS, PAGE_LINK } from "./constants";
+import { DROPDOWN_ITEMS } from "./constants";
 import { getThreadEndpoint } from "./api/endpoints/gmail";
 import parse from "parse-email";
 import {
@@ -14,6 +14,9 @@ import {
 window.setImmediate = window.setTimeout;
 
 const threadIdArray = [];
+
+var request_counter = 0;
+var settimeout_for_request_counter_reset = null;
 
 InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
   onLoadSetup();
@@ -141,10 +144,15 @@ const getAllThreadIds = (list) => {
 const onFilterHTMLContent = () => {
   if (threadIdArray.length > 0) {
     threadIdArray.map((item) => {
-      if (item !== getThreadContent(item)?.id) {
-        setTimeout(async () => {
+      var timeout = 130 * request_counter;
+      fn_increase_request_counter();
+      fn_reset_request_counter();
+
+      setTimeout(async () => {
+        if (item !== getThreadContent(item)?.id) {
           const getEmailResponse = await onGetThreadMessage(item);
           const response = await parse(getEmailResponse);
+          fn_decrease_request_counter();
 
           let obj = {
             id: item,
@@ -153,8 +161,8 @@ const onFilterHTMLContent = () => {
 
           setThreadContent(item, obj);
           injectClasses(getSelectedItem());
-        }, 2000);
-      }
+        }
+      }, timeout);
     });
   }
 };
@@ -299,7 +307,7 @@ const addEmailPreview = () => {
           }px; left: -${threadRow.clientWidth - 200}px">
             ${
               getThreadContent(messageId)
-                ? !getThreadContent(messageId).content
+                ? getThreadContent(messageId).content === "false"
                   ? "Preview not available..."
                   : getThreadContent(messageId).content
                 : "Loading..."
@@ -387,3 +395,31 @@ const setEyeIconOnThread = (list) => {
 };
 
 /************ Ending Setting Eye Icon Module ************/
+
+function fn_increase_request_counter() {
+  request_counter = request_counter + 1;
+}
+
+function fn_decrease_request_counter() {
+  request_counter--;
+  if (request_counter < 0) {
+    request_counter = 0;
+  }
+}
+
+function fn_reset_request_counter() {
+  if (!settimeout_for_request_counter_reset) {
+    settimeout_for_request_counter_reset = setTimeout(function () {
+      request_counter = 0;
+      try {
+        if (settimeout_for_request_counter_reset) {
+          clearTimeout(settimeout_for_request_counter_reset);
+        }
+
+        settimeout_for_request_counter_reset = null;
+      } catch (ex) {
+        settimeout_for_request_counter_reset = null;
+      }
+    }, 1000);
+  }
+}
