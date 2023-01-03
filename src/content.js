@@ -4,45 +4,46 @@ import "./styles/index.scss";
 import { DROPDOWN_ITEMS } from "./constants";
 import { getThreadEndpoint } from "./api/endpoints/gmail";
 import parse from "parse-email";
-import {
-  getSelectedItem,
-  getThreadContent,
-  setSelectedItem,
-  setThreadContent,
-} from "./localStorage";
+import { getSelectedItem, setSelectedItem } from "./localStorage";
 
 window.setImmediate = window.setTimeout;
 
-const threadIdArray = [];
+var threadIdArray = [];
 var localStorageData = [];
+let globalCounter = 0;
 
 var request_counter = 0;
 var settimeout_for_request_counter_reset = null;
 
 InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
-  onLoadSetup();
+  onLoadSetup(sdk);
   getAllThreadIds(sdk.Lists);
   setEyeIconOnThread(sdk.Lists);
 });
 
 /************ Start Load Initial Setup Module ************/
 
-const onLoadSetup = () => {
+const onLoadSetup = (sdk) => {
   setInterval(() => {
     var temp_thread_id = document
       .querySelector("span[data-legacy-thread-id]")
       .getAttribute("data-legacy-thread-id");
     if (!localStorage.getItem("First_thread_id")) {
-      // First Thread ID on the page
       if (temp_thread_id != localStorage.getItem("First_thread_id")) {
         localStorage.setItem("First_thread_id", temp_thread_id);
       }
     } else if (localStorage.getItem("First_thread_id") != temp_thread_id) {
-      var temp_selectedItem = localStorage.getItem("selectedItem");
-      localStorage.clear();
-      localStorage.setItem("selectedItem", temp_selectedItem);
-      onFilterHTMLContent();
+      localStorageData = [];
+      threadIdArray = [];
+      request_counter = 0;
+      globalCounter = 0;
+
+      getAllThreadIds(sdk.Lists);
       localStorage.setItem("First_thread_id", temp_thread_id);
+
+      setTimeout(() => {
+        onFilterHTMLContent(sdk);
+      }, 2000);
     }
   }, 1000);
 
@@ -52,15 +53,10 @@ const onLoadSetup = () => {
     }
 
     setToolbarButton();
-
-    onFilterHTMLContent();
+    onFilterHTMLContent(sdk);
 
     clearInterval(initialInterval);
   }, 500);
-
-  setInterval(() => {
-    injectClasses(getSelectedItem());
-  }, 1000);
 };
 
 /************ End Load Initial Setup Module ************/
@@ -160,7 +156,7 @@ const getAllThreadIds = (list) => {
 
 /************ Start Filter HTML Content Module ************/
 
-const onFilterHTMLContent = () => {
+const onFilterHTMLContent = (sdk) => {
   if (threadIdArray.length > 0) {
     threadIdArray.map((item, index) => {
       var timeout = 130 * request_counter;
@@ -168,25 +164,33 @@ const onFilterHTMLContent = () => {
       fn_reset_request_counter();
 
       setTimeout(async () => {
-        if (item !== getThreadContent(item)?.id) {
-          const getEmailResponse = await onGetThreadMessage(item);
-          const response = await parse(getEmailResponse);
-          fn_decrease_request_counter();
+        const getEmailResponse = await onGetThreadMessage(item);
+        const response = await parse(getEmailResponse);
+        fn_decrease_request_counter();
 
-          let obj = {
-            id: item,
-            content: bodyParser(response.html),
-          };
+        let obj = {
+          id: item,
+          content: bodyParser(response.html),
+          showLabel: false,
+        };
 
-          localStorageData.push(obj);
-          injectClasses(getSelectedItem());
-          if (index == threadIdArray.length - 1) {
-            addEmailPreview();
-          }
-        }
+        localStorageData.push(obj);
       }, timeout);
     });
   }
+
+  let dataInsertionInterval = setInterval(() => {
+    globalCounter += 1000;
+    injectClasses(getSelectedItem());
+    setLabelOnThread(sdk);
+
+    if (
+      globalCounter > 20000 &&
+      localStorageData.length > threadIdArray.length - 5
+    ) {
+      clearInterval(dataInsertionInterval);
+    }
+  }, 1000);
 };
 
 /************ Ending Filter HTML Content Module ************/
@@ -215,6 +219,9 @@ const injectClasses = (selectedItem) => {
       threadRow.setAttribute("style", "position: relative;");
 
       let messageParagraph = threadRow.querySelector(".y2");
+
+      let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
+
       var result = localStorageData.find((obj) => {
         return obj.id === messageId;
       });
@@ -229,7 +236,9 @@ const injectClasses = (selectedItem) => {
               result
                 ? result.content === "false"
                   ? "Preview not available..."
-                  : HTMLBodyParser(result.content)
+                  : fn_get_plain_text_from_email_original_content_of_html(
+                      result.content
+                    )
                 : "Loading..."
             }
           `;
@@ -249,7 +258,9 @@ const injectClasses = (selectedItem) => {
             result
               ? result.content === "false"
                 ? "Preview not available..."
-                : HTMLBodyParser(result.content).slice(0, 108)
+                : fn_get_plain_text_from_email_original_content_of_html(
+                    result.content
+                  ).slice(0, 108)
               : "Loading..."
           }
           </p>
@@ -270,7 +281,9 @@ const injectClasses = (selectedItem) => {
             result
               ? result.content === "false"
                 ? "Preview not available..."
-                : HTMLBodyParser(result.content).slice(0, 220)
+                : fn_get_plain_text_from_email_original_content_of_html(
+                    result.content
+                  ).slice(0, 220)
               : "Loading..."
           }
           </p>
@@ -291,30 +304,14 @@ const injectClasses = (selectedItem) => {
             result
               ? !result.content
                 ? "Preview not available..."
-                : HTMLBodyParser(result.content).slice(0, 345)
+                : fn_get_plain_text_from_email_original_content_of_html(
+                    result.content
+                  ).slice(0, 345)
               : "Loading..."
           }
           </p>
         `;
       }
-    });
-};
-
-/************ Ending Inject CSS Classes Module ************/
-
-const addEmailPreview = () => {
-  document
-    .querySelectorAll("[data-inboxsdk-thread-row='true']")
-    .forEach((threadRow) => {
-      let messageId = threadRow
-        .querySelector("[data-legacy-thread-id]")
-        .getAttribute("data-legacy-thread-id");
-
-      let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
-
-      var result = localStorageData.find((obj) => {
-        return obj.id === messageId;
-      });
 
       eyeIcon.addEventListener("mouseover", (e) => {
         e.currentTarget.setAttribute("style", "position: relative;");
@@ -345,6 +342,8 @@ const addEmailPreview = () => {
       });
     });
 };
+
+/************ Ending Inject CSS Classes Module ************/
 
 /************ Starting HTML Body Parser Module ************/
 
@@ -412,6 +411,8 @@ const setEyeIconOnThread = (list) => {
 
 /************ Ending Setting Eye Icon Module ************/
 
+/************ Starting Request Counter Controllers Module ************/
+
 function fn_increase_request_counter() {
   request_counter = request_counter + 1;
 }
@@ -438,4 +439,73 @@ function fn_reset_request_counter() {
       }
     }, 1000);
   }
+}
+
+/************ Ending Request Counter Controllers Module ************/
+
+/************ Starting Setting Labels on Thread Module ************/
+
+const setLabelOnThread = (sdk) => {
+  sdk.Lists.registerThreadRowViewHandler((list, i) => {
+    var result = localStorageData.find((obj) => obj.id === list.getThreadID());
+
+    result && result.content !== "false" && !result.showLabel
+      ? list.addLabel({
+          title: calculateThreadReadingTime(HTMLBodyParser(result.content)),
+          foregroundColor: "#E3E3E3",
+          backgroundColor: "#FF5834",
+        })
+      : "";
+
+    result && result.content !== "false" && !result.showLabel
+      ? list.addLabel({
+          title: `${HTMLBodyParser(result.content).length} Words`,
+          foregroundColor: "#E3E3E3",
+          backgroundColor: "#FF5834",
+        })
+      : "";
+
+    localStorageData.find((obj, i) => {
+      if (obj.id === list.getThreadID()) {
+        localStorageData[i].showLabel = true;
+      }
+    });
+  });
+};
+
+/************ Ending Setting Labels on Thread Module ************/
+
+/************ Starting Calculate Thread Reading Time Module ************/
+
+const calculateThreadReadingTime = (content) => {
+  let wordCount = content.toString().length;
+  let calculateMinutes = (+wordCount / 200).toString().split(".");
+  let calculateSeconds = +`0.${calculateMinutes[1]}` * +"0.60" * 100;
+  let seconds = calculateSeconds.toString().slice(0, 2).replace(/\./g, "");
+  return calculateMinutes[0] + " min" + " " + seconds + " sec";
+};
+
+/************ Ending Calculate Thread Reading Time Module ************/
+
+//get text from html details in original content
+function fn_get_plain_text_from_email_original_content_of_html(content) {
+  var text = "";
+  var html_txt;
+  if (content.match(/<body/)) {
+    html_txt = content
+      .substring(content.indexOf("<body"), content.lastIndexOf("</body>"))
+      .trim();
+    html_txt = html_txt + "</body>";
+  } else {
+    html_txt = "<body>" + content + "</body>";
+  }
+
+  var outer = $("<outer></outer>");
+  outer.html(html_txt);
+  outer.find("img").remove();
+
+  var element = outer.get(0);
+  text = element.innerText || element.textContent;
+
+  return text.trim();
 }
