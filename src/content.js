@@ -1,7 +1,11 @@
 import * as InboxSDK from "@inboxsdk/core";
 import $ from "jquery";
 import "./styles/index.scss";
-import { DROPDOWN_ITEMS } from "./constants";
+import {
+  DROPDOWN_ITEMS,
+  g_black_listed_string_params,
+  g_black_listed_websites,
+} from "./constants";
 import { getThreadEndpoint } from "./api/endpoints/gmail";
 import parse from "parse-email";
 import { getSelectedItem, setSelectedItem } from "./localStorage";
@@ -23,11 +27,12 @@ InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
 
 /************ Start Load Initial Setup Module ************/
 
-const onLoadSetup = (sdk) => {
-  setInterval(() => {
+const pickAndStoreFirstThreadId = (sdk, rowClass) => {
+  if (document.querySelector(`${rowClass} [data-legacy-thread-id]`)) {
     var temp_thread_id = document
-      .querySelector("span[data-legacy-thread-id]")
+      .querySelector(`${rowClass} [data-legacy-thread-id]`)
       .getAttribute("data-legacy-thread-id");
+
     if (!localStorage.getItem("First_thread_id")) {
       if (temp_thread_id != localStorage.getItem("First_thread_id")) {
         localStorage.setItem("First_thread_id", temp_thread_id);
@@ -45,6 +50,23 @@ const onLoadSetup = (sdk) => {
         onFilterHTMLContent(sdk);
       }, 2000);
     }
+  }
+};
+
+const onLoadSetup = (sdk) => {
+  setInterval(() => {
+    let splitURL = window.location.href.split("#");
+
+    if (splitURL[1] === "inbox")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "starred")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "snoozed")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "sent")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "drafts")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
   }, 1000);
 
   const initialInterval = setInterval(() => {
@@ -67,7 +89,7 @@ const setToolbarButton = () => {
   if ($("[data-toolbar-icononly='true']")) {
     $("[data-toolbar-icononly='true'] > .bzn > .G-tF").append(
       `<div class="G-Ni J-J5-Ji">
-          <div id="listToolbarItem" class="T-I J-J5-Ji nf T-I-ax7 L3" role="button" tabindex="0" aria-haspopup="false" aria-expanded="false" data-tooltip="Select Line" aria-label="Line">
+          <div class="T-I J-J5-Ji nf T-I-ax7 L3 listToolbarItem" role="button" tabindex="0" aria-haspopup="false" aria-expanded="false" data-tooltip="Select Line" aria-label="Line">
             <div class="asa">
               <i class="fas fa-bars" style="font-size: 18px; color: #5F6368;"></i>
             </div>
@@ -109,13 +131,22 @@ const setToolbarButton = () => {
         </div>`
     );
 
-    document
-      .getElementById("listToolbarItem")
-      .addEventListener("click", onListSelectPopup);
+    let eventListenerInterval = setInterval(() => {
+      if (
+        document.querySelector(".listToolbarItem") &&
+        document.querySelector(".listPopupItem")
+      ) {
+        document
+          .querySelectorAll(".listToolbarItem")
+          .forEach((item) => item.addEventListener("click", onListSelectPopup));
 
-    document
-      .querySelectorAll(".listPopupItem")
-      .forEach((item) => item.addEventListener("click", onSelectListItem));
+        document
+          .querySelectorAll(".listPopupItem")
+          .forEach((item) => item.addEventListener("click", onSelectListItem));
+
+        clearInterval(eventListenerInterval);
+      }
+    }, 500);
   }
 };
 
@@ -170,7 +201,8 @@ const onFilterHTMLContent = (sdk) => {
 
         let obj = {
           id: item,
-          content: bodyParser(response.html),
+          content: fn_get_plain_text_from_email_original_content(response).text,
+          html: fn_get_plain_text_from_email_original_content(response).html,
           showLabel: false,
         };
 
@@ -182,12 +214,12 @@ const onFilterHTMLContent = (sdk) => {
   let dataInsertionInterval = setInterval(() => {
     globalCounter += 1000;
     injectClasses(getSelectedItem());
-    setLabelOnThread(sdk);
 
     if (
       globalCounter > 20000 &&
       localStorageData.length > threadIdArray.length - 5
     ) {
+      setLabelOnThread(sdk);
       clearInterval(dataInsertionInterval);
     }
   }, 1000);
@@ -236,9 +268,7 @@ const injectClasses = (selectedItem) => {
               result
                 ? result.content === "false"
                   ? "Preview not available..."
-                  : fn_get_plain_text_from_email_original_content_of_html(
-                      result.content
-                    )
+                  : result.content
                 : "Loading..."
             }
           `;
@@ -258,9 +288,7 @@ const injectClasses = (selectedItem) => {
             result
               ? result.content === "false"
                 ? "Preview not available..."
-                : fn_get_plain_text_from_email_original_content_of_html(
-                    result.content
-                  ).slice(0, 108)
+                : result.content.slice(0, 108)
               : "Loading..."
           }
           </p>
@@ -281,9 +309,7 @@ const injectClasses = (selectedItem) => {
             result
               ? result.content === "false"
                 ? "Preview not available..."
-                : fn_get_plain_text_from_email_original_content_of_html(
-                    result.content
-                  ).slice(0, 220)
+                : result.content.slice(0, 220)
               : "Loading..."
           }
           </p>
@@ -304,9 +330,7 @@ const injectClasses = (selectedItem) => {
             result
               ? !result.content
                 ? "Preview not available..."
-                : fn_get_plain_text_from_email_original_content_of_html(
-                    result.content
-                  ).slice(0, 345)
+                : result.content.slice(0, 345)
               : "Loading..."
           }
           </p>
@@ -319,18 +343,34 @@ const injectClasses = (selectedItem) => {
           <div class="inboxsdk__button_icon">
             <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
           </div>
-          <div class="iframeContainer" style="width: ${
-            threadRow.clientWidth - 48
-          }px; left: -${threadRow.clientWidth - 200}px">
-            ${
-              result
-                ? result.content === "false"
-                  ? "Preview not available..."
-                  : result.content
-                : "Loading..."
-            }
+          <div class="full_preview_message" data-message-id="${
+            result && result.id
+          }" style="width: ${threadRow.clientWidth - 15}px; left: -${
+          threadRow.clientWidth - 200
+        }px">
+            <iframe border='0' width='100%' height='100%'></iframe>
           </div>
         `;
+
+        var parent_div = $('<div class="gmail__iframe__scroll"></div>').attr(
+          "style",
+          "color:#222;font:small/1.5 Arial,Helvetica,sans-serif;line-height:1.5em; word-break: break-all; overflow-wrap: break-word; hyphens: auto; overflow:hidden; width:100%; height:100%"
+        );
+
+        var child_div = $(
+          '<div style="-webkit-transform: scale(.7);-webkit-transform-origin: 0 0;width: 143%;margin:5px; overflow: hidden"></div>'
+        ).html(fn_clean_tracker_images(result && result.html));
+
+        parent_div.append(child_div);
+
+        $(`[data-message-id="${result && result.id}"] > iframe`)
+          .contents()
+          .find("body")
+          .attr(
+            "style",
+            "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
+          )
+          .append(parent_div);
       });
 
       eyeIcon.addEventListener("mouseout", (e) => {
@@ -446,7 +486,7 @@ function fn_reset_request_counter() {
 /************ Starting Setting Labels on Thread Module ************/
 
 const setLabelOnThread = (sdk) => {
-  sdk.Lists.registerThreadRowViewHandler((list, i) => {
+  sdk.Lists.registerThreadRowViewHandler((list) => {
     var result = localStorageData.find((obj) => obj.id === list.getThreadID());
 
     result && result.content !== "false" && !result.showLabel
@@ -508,4 +548,85 @@ function fn_get_plain_text_from_email_original_content_of_html(content) {
   text = element.innerText || element.textContent;
 
   return text.trim();
+}
+
+function fn_remove_html_tags(html) {
+  var div = document.createElement("div");
+  div.innerHTML = html;
+  var text = div.textContent || div.innerText || "";
+  return text.trim();
+}
+
+function fn_get_plain_text_from_email_original_content(content) {
+  var text = "";
+  if (content.text && content.text.trim() !== "") {
+    text = content.text.trim();
+  } else if (content.html) {
+    text = fn_get_plain_text_from_email_original_content_of_html(content.html);
+  }
+  //sometimes it still keeps the html tags, remove those tags
+  text = fn_remove_html_tags(text);
+  var html = content.html ? content.html : content.textAsHtml;
+  return { text: text.replace(/^\s*$(?:\r\n?|\n)/gm, "    "), html: html };
+}
+
+function fn_check_in_known_websites(imgurl) {
+  var blacklisted = false;
+  for (var key in g_black_listed_websites) {
+    for (var i = 0; i < g_black_listed_websites[key].length; i++) {
+      if (imgurl.indexOf(g_black_listed_websites[key][i]) > -1) {
+        blacklisted = true;
+        break;
+      }
+    }
+    if (blacklisted === true) {
+      break;
+    }
+  }
+  return blacklisted;
+}
+
+function fn_check_in_known_string_params(imgurl) {
+  var blacklisted = false;
+  for (var i = 0; i < g_black_listed_string_params.length; i++) {
+    if (imgurl.indexOf(g_black_listed_string_params[i]) > -1) {
+      blacklisted = true;
+      break;
+    }
+  }
+
+  return blacklisted;
+}
+
+function fn_check_for_black_list(url) {
+  var blacklisted = false;
+  var imgurl = url.toLowerCase();
+  if (imgurl !== "") {
+    blacklisted = fn_check_in_known_websites(imgurl);
+    //if we are unable to find tracking url in known websites, try with know string parameters
+    if (blacklisted === false) {
+      blacklisted = fn_check_in_known_string_params(imgurl);
+    }
+  }
+  return blacklisted;
+}
+
+function fn_clean_tracker_images(html) {
+  var outer = $("<outer></other>");
+  outer.html(html);
+  try {
+    var images = outer.find("img");
+    $.each(images, function (k, img) {
+      if (img) {
+        var img_src = $(img).attr("src");
+        if (img_src && fn_check_for_black_list(img_src)) {
+          $(img).attr(
+            "src",
+            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          );
+        }
+      }
+    });
+  } catch (ex) {}
+  return outer.html();
 }
