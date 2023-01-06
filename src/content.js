@@ -29,9 +29,15 @@ InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
 
 const pickAndStoreFirstThreadId = (sdk, rowClass) => {
   if (document.querySelector(`${rowClass} [data-legacy-thread-id]`)) {
-    var temp_thread_id = document
-      .querySelector(`${rowClass} [data-legacy-thread-id]`)
-      .getAttribute("data-legacy-thread-id");
+    let thread_row = document.querySelectorAll(
+      `${rowClass} [data-legacy-thread-id]`
+    );
+
+    var temp_thread_id =
+      thread_row.item(0).getAttribute("data-legacy-thread-id") ||
+      thread_row.item(1).getAttribute("data-legacy-thread-id") ||
+      thread_row.item(2).getAttribute("data-legacy-thread-id") ||
+      thread_row.item(3).getAttribute("data-legacy-thread-id");
 
     if (!localStorage.getItem("First_thread_id")) {
       if (temp_thread_id != localStorage.getItem("First_thread_id")) {
@@ -57,6 +63,9 @@ const onLoadSetup = (sdk) => {
   setInterval(() => {
     let splitURL = window.location.href.split("#");
 
+    console.log(splitURL);
+    removeAdEmails();
+
     if (splitURL[1] === "inbox")
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
     if (splitURL[1] === "starred")
@@ -66,6 +75,14 @@ const onLoadSetup = (sdk) => {
     if (splitURL[1] === "sent")
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
     if (splitURL[1] === "drafts")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "category/social")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "category/updates")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "category/forums")
+      pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
+    if (splitURL[1] === "category/promotions")
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
   }, 1000);
 
@@ -206,7 +223,12 @@ const onFilterHTMLContent = (sdk) => {
           showLabel: false,
         };
 
-        localStorageData.push(obj);
+        const exist = localStorageData.includes(item);
+
+        if (!exist) {
+          localStorageData.push(obj);
+          setLabelOnThread(sdk);
+        }
       }, timeout);
     });
   }
@@ -219,7 +241,6 @@ const onFilterHTMLContent = (sdk) => {
       globalCounter > 20000 &&
       localStorageData.length > threadIdArray.length - 5
     ) {
-      setLabelOnThread(sdk);
       clearInterval(dataInsertionInterval);
     }
   }, 1000);
@@ -244,146 +265,158 @@ const injectClasses = (selectedItem) => {
   document
     .querySelectorAll("[data-inboxsdk-thread-row='true']")
     .forEach((threadRow) => {
-      let messageId = threadRow
-        .querySelector("[data-legacy-thread-id]")
-        .getAttribute("data-legacy-thread-id");
+      if (threadRow.querySelector("[data-legacy-thread-id]")) {
+        let messageId = threadRow
+          .querySelector("[data-legacy-thread-id]")
+          .getAttribute("data-legacy-thread-id");
 
-      threadRow.setAttribute("style", "position: relative;");
+        threadRow.setAttribute("style", "position: relative;");
 
-      let messageParagraph = threadRow.querySelector(".y2");
+        let messageParagraph = threadRow.querySelector(".y2");
 
-      let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
+        let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
 
-      var result = localStorageData.find((obj) => {
-        return obj.id === messageId;
-      });
+        var result = localStorageData.find((obj) => {
+          return obj.id === messageId;
+        });
 
-      if (selectedItem === DROPDOWN_ITEMS.ITEM_ONE) {
-        $("[role='link'] > .xT").removeClass("removeFlex");
-        $("[role='link'] > .xT").addClass("addFlex");
+        if (selectedItem === DROPDOWN_ITEMS.ITEM_ONE) {
+          $("[role='link'] > .xT").removeClass("removeFlex");
+          $("[role='link'] > .xT").addClass("addFlex");
 
-        messageParagraph.innerHTML = `
-          <span class="Zt">&nbsp;-&nbsp;</span>
+          messageParagraph.innerHTML = `
+            <span class="Zt">&nbsp;-&nbsp;</span>
+              ${
+                result
+                  ? result.content === "false"
+                    ? "Preview not available..."
+                    : result.content
+                  : "Loading..."
+              }
+            `;
+        }
+
+        if (selectedItem === DROPDOWN_ITEMS.ITEM_TWO) {
+          $("[role='link'] > .xT").removeClass("addFlex");
+          $("[role='link'] > .xT").addClass("removeFlex");
+
+          messageParagraph.setAttribute(
+            "style",
+            "display: block; margin-top: 5px"
+          );
+          messageParagraph.innerHTML = `
+            <p class="messageText">
             ${
               result
                 ? result.content === "false"
                   ? "Preview not available..."
-                  : result.content
+                  : result.content.slice(0, 108)
                 : "Loading..."
             }
+            </p>
           `;
-      }
+        }
 
-      if (selectedItem === DROPDOWN_ITEMS.ITEM_TWO) {
-        $("[role='link'] > .xT").removeClass("addFlex");
-        $("[role='link'] > .xT").addClass("removeFlex");
+        if (selectedItem === DROPDOWN_ITEMS.ITEM_THREE) {
+          $("[role='link'] > .xT").removeClass("addFlex");
+          $("[role='link'] > .xT").addClass("removeFlex");
 
-        messageParagraph.setAttribute(
-          "style",
-          "display: block; margin-top: 5px"
-        );
-        messageParagraph.innerHTML = `
-          <p class="messageText">
-          ${
-            result
-              ? result.content === "false"
-                ? "Preview not available..."
-                : result.content.slice(0, 108)
-              : "Loading..."
-          }
-          </p>
-        `;
-      }
-
-      if (selectedItem === DROPDOWN_ITEMS.ITEM_THREE) {
-        $("[role='link'] > .xT").removeClass("addFlex");
-        $("[role='link'] > .xT").addClass("removeFlex");
-
-        messageParagraph.setAttribute(
-          "style",
-          "display: block; margin-top: 5px"
-        );
-        messageParagraph.innerHTML = `
-          <p class="messageText">
-          ${
-            result
-              ? result.content === "false"
-                ? "Preview not available..."
-                : result.content.slice(0, 220)
-              : "Loading..."
-          }
-          </p>
-        `;
-      }
-
-      if (selectedItem === DROPDOWN_ITEMS.ITEM_FOUR) {
-        $("[role='link'] > .xT").removeClass("addFlex");
-        $("[role='link'] > .xT").addClass("removeFlex");
-
-        messageParagraph.setAttribute(
-          "style",
-          "display: block; margin-top: 5px"
-        );
-        messageParagraph.innerHTML = `
-          <p class="messageText">
-          ${
-            result
-              ? !result.content
-                ? "Preview not available..."
-                : result.content.slice(0, 345)
-              : "Loading..."
-          }
-          </p>
-        `;
-      }
-
-      eyeIcon.addEventListener("mouseover", (e) => {
-        e.currentTarget.setAttribute("style", "position: relative;");
-        e.currentTarget.innerHTML = `
-          <div class="inboxsdk__button_icon">
-            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-          </div>
-          <div class="full_preview_message" data-message-id="${
-            result && result.id
-          }" style="width: ${threadRow.clientWidth - 15}px; left: -${
-          threadRow.clientWidth - 200
-        }px">
-            <iframe border='0' width='100%' height='100%'></iframe>
-          </div>
-        `;
-
-        var parent_div = $('<div class="gmail__iframe__scroll"></div>').attr(
-          "style",
-          "color:#222;font:small/1.5 Arial,Helvetica,sans-serif;line-height:1.5em; word-break: break-all; overflow-wrap: break-word; hyphens: auto; overflow:hidden; width:100%; height:100%"
-        );
-
-        var child_div = $(
-          '<div style="-webkit-transform: scale(.7);-webkit-transform-origin: 0 0;width: 143%;margin:5px; overflow: hidden"></div>'
-        ).html(fn_clean_tracker_images(result && result.html));
-
-        parent_div.append(child_div);
-
-        $(`[data-message-id="${result && result.id}"] > iframe`)
-          .contents()
-          .find("body")
-          .attr(
+          messageParagraph.setAttribute(
             "style",
-            "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
-          )
-          .append(parent_div);
-      });
+            "display: block; margin-top: 5px"
+          );
+          messageParagraph.innerHTML = `
+            <p class="messageText">
+            ${
+              result
+                ? result.content === "false"
+                  ? "Preview not available..."
+                  : result.content.slice(0, 220)
+                : "Loading..."
+            }
+            </p>
+          `;
+        }
 
-      eyeIcon.addEventListener("mouseout", (e) => {
-        e.currentTarget.innerHTML = `
-          <div class="inboxsdk__button_icon">
-            <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-          </div>
-        `;
-      });
+        if (selectedItem === DROPDOWN_ITEMS.ITEM_FOUR) {
+          $("[role='link'] > .xT").removeClass("addFlex");
+          $("[role='link'] > .xT").addClass("removeFlex");
+
+          messageParagraph.setAttribute(
+            "style",
+            "display: block; margin-top: 5px"
+          );
+          messageParagraph.innerHTML = `
+            <p class="messageText">
+            ${
+              result
+                ? !result.content
+                  ? "Preview not available..."
+                  : result.content.slice(0, 345)
+                : "Loading..."
+            }
+            </p>
+          `;
+        }
+
+        eyeIcon.addEventListener("mouseover", (e) => {
+          e.currentTarget.setAttribute("style", "position: relative;");
+          e.currentTarget.innerHTML = `
+            <div class="inboxsdk__button_icon">
+              <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
+            </div>
+            <div class="full_preview_message" data-message-id="${
+              result && result.id
+            }" style="width: ${threadRow.clientWidth - 15}px; left: -${
+            threadRow.clientWidth - 200
+          }px">
+              <iframe border='0' width='100%' height='100%'></iframe>
+            </div>
+          `;
+
+          var parent_div = $('<div class="gmail__iframe__scroll"></div>').attr(
+            "style",
+            "color:#222;font:small/1.5 Arial,Helvetica,sans-serif;line-height:1.5em; word-break: break-all; overflow-wrap: break-word; hyphens: auto; overflow:hidden; width:100%; height:100%"
+          );
+
+          var child_div = $(
+            '<div style="-webkit-transform: scale(.7);-webkit-transform-origin: 0 0;width: 143%;margin:5px; overflow: hidden"></div>'
+          ).html(fn_clean_tracker_images(result && result.html));
+
+          parent_div.append(child_div);
+
+          $(`[data-message-id="${result && result.id}"] > iframe`)
+            .contents()
+            .find("body")
+            .attr(
+              "style",
+              "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
+            )
+            .append(parent_div);
+        });
+
+        eyeIcon.addEventListener("mouseout", (e) => {
+          e.currentTarget.innerHTML = `
+            <div class="inboxsdk__button_icon">
+              <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
+            </div>
+          `;
+        });
+      }
     });
 };
 
 /************ Ending Inject CSS Classes Module ************/
+
+const removeAdEmails = () => {
+  document
+    .querySelectorAll("[data-inboxsdk-thread-row='true']")
+    .forEach((threadRow) => {
+      if (threadRow.querySelector(`[role="gridcell"] .aPd.am0.aRC .ast`)) {
+        threadRow.remove();
+      }
+    });
+};
 
 /************ Starting HTML Body Parser Module ************/
 
@@ -489,7 +522,7 @@ const setLabelOnThread = (sdk) => {
   sdk.Lists.registerThreadRowViewHandler((list) => {
     var result = localStorageData.find((obj) => obj.id === list.getThreadID());
 
-    result && result.content !== "false" && !result.showLabel
+    result && result.content !== "false" && result.showLabel === false
       ? list.addLabel({
           title: calculateThreadReadingTime(HTMLBodyParser(result.content)),
           foregroundColor: "#E3E3E3",
@@ -497,7 +530,7 @@ const setLabelOnThread = (sdk) => {
         })
       : "";
 
-    result && result.content !== "false" && !result.showLabel
+    result && result.content !== "false" && result.showLabel === false
       ? list.addLabel({
           title: `${HTMLBodyParser(result.content).length} Words`,
           foregroundColor: "#E3E3E3",
