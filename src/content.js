@@ -28,6 +28,8 @@ InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
 /************ Start Load Initial Setup Module ************/
 
 const pickAndStoreFirstThreadId = (sdk, rowClass) => {
+  let splitURL = window.location.href.split("#");
+
   if (document.querySelector(`${rowClass} [data-legacy-thread-id]`)) {
     let thread_row = document.querySelectorAll(
       `${rowClass} [data-legacy-thread-id]`
@@ -39,18 +41,22 @@ const pickAndStoreFirstThreadId = (sdk, rowClass) => {
       thread_row.item(2).getAttribute("data-legacy-thread-id") ||
       thread_row.item(3).getAttribute("data-legacy-thread-id");
 
-    if (!localStorage.getItem("First_thread_id")) {
-      if (temp_thread_id != localStorage.getItem("First_thread_id")) {
-        localStorage.setItem("First_thread_id", temp_thread_id);
+    if (!localStorage.getItem(`${splitURL[0]}`)) {
+      if (temp_thread_id != localStorage.getItem(`${splitURL[0]}`)) {
+        localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
       }
-    } else if (localStorage.getItem("First_thread_id") != temp_thread_id) {
+    } else if (localStorage.getItem(`${splitURL[0]}`) != temp_thread_id) {
+      removeAllLabels();
+      removeAllToolbars();
+      injectToolbar();
+
       localStorageData = [];
       threadIdArray = [];
       request_counter = 0;
       globalCounter = 0;
 
       getAllThreadIds(sdk.Lists);
-      localStorage.setItem("First_thread_id", temp_thread_id);
+      localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
 
       setTimeout(() => {
         onFilterHTMLContent(sdk);
@@ -59,11 +65,26 @@ const pickAndStoreFirstThreadId = (sdk, rowClass) => {
   }
 };
 
+const injectToolbar = () => {
+  if (document.querySelector(".D.E.G-atb[gh='tm']")) {
+    setToolbarButton();
+  }
+};
+
+const removeAllToolbars = () => {
+  document.querySelectorAll(".D.E.G-atb").forEach((item) => {
+    item.querySelectorAll(".listToolbarContainer").forEach((toolbar) => {
+      if (toolbar) {
+        toolbar.remove();
+      }
+    });
+  });
+};
+
 const onLoadSetup = (sdk) => {
   setInterval(() => {
     let splitURL = window.location.href.split("#");
 
-    console.log(splitURL);
     removeAdEmails();
 
     if (splitURL[1] === "inbox")
@@ -84,17 +105,24 @@ const onLoadSetup = (sdk) => {
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
     if (splitURL[1] === "category/promotions")
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
-  }, 1000);
+  }, 500);
 
   const initialInterval = setInterval(() => {
     if (!getSelectedItem()) {
       setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
     }
 
-    setToolbarButton();
     onFilterHTMLContent(sdk);
 
-    clearInterval(initialInterval);
+    if (
+      document.querySelector(
+        ".D.E.G-atb[gh='tm'] [data-toolbar-icononly='true']"
+      )
+    ) {
+      removeAllToolbars();
+      setToolbarButton();
+      clearInterval(initialInterval);
+    }
   }, 500);
 };
 
@@ -103,9 +131,12 @@ const onLoadSetup = (sdk) => {
 /************ Start Toolbar Button Module ************/
 
 const setToolbarButton = () => {
-  if ($("[data-toolbar-icononly='true']")) {
-    $("[data-toolbar-icononly='true'] > .bzn > .G-tF").append(
-      `<div class="G-Ni J-J5-Ji">
+  document
+    .querySelectorAll(
+      ".D.E.G-atb[gh='tm'] [data-toolbar-icononly='true'] > .bzn > .G-tF"
+    )
+    .forEach((item) => {
+      item.innerHTML += `<div class="G-Ni J-J5-Ji listToolbarContainer">
           <div class="T-I J-J5-Ji nf T-I-ax7 L3 listToolbarItem" role="button" tabindex="0" aria-haspopup="false" aria-expanded="false" data-tooltip="Select Line" aria-label="Line">
             <div class="asa">
               <i class="fas fa-bars" style="font-size: 18px; color: #5F6368;"></i>
@@ -113,7 +144,7 @@ const setToolbarButton = () => {
             <div class="G-asx T-I-J3 J-J5-Ji">&nbsp;</div>
           </div>
 
-          <div id="listPopupContainer" style="display: none">
+          <div class="listPopupContainer" style="display: none">
             <div class="J-M aX0 aYO jQjAxd" style="width: 170px; height: auto; padding: 10px 0px; top: 20px; left: 15px;">
               <div class="J-N-Jz listPopupItem ${
                 getSelectedItem() === DROPDOWN_ITEMS.ITEM_ONE
@@ -145,42 +176,45 @@ const setToolbarButton = () => {
               </div>
             </div>
           </div>
-        </div>`
-    );
+        </div>`;
+    });
 
-    let eventListenerInterval = setInterval(() => {
-      if (
-        document.querySelector(".listToolbarItem") &&
-        document.querySelector(".listPopupItem")
-      ) {
-        document
-          .querySelectorAll(".listToolbarItem")
-          .forEach((item) => item.addEventListener("click", onListSelectPopup));
+  let eventListenerInterval = setInterval(() => {
+    if (
+      document.querySelector(".listToolbarItem") &&
+      document.querySelector(".listPopupItem")
+    ) {
+      document
+        .querySelectorAll(".listToolbarItem")
+        .forEach((item) => item.addEventListener("click", onListSelectPopup));
 
-        document
-          .querySelectorAll(".listPopupItem")
-          .forEach((item) => item.addEventListener("click", onSelectListItem));
+      document
+        .querySelectorAll(".listPopupItem")
+        .forEach((item) => item.addEventListener("click", onSelectListItem));
 
-        clearInterval(eventListenerInterval);
-      }
-    }, 500);
-  }
+      clearInterval(eventListenerInterval);
+    }
+  }, 500);
 };
 
 const onListSelectPopup = () => {
-  if (document.getElementById("listPopupContainer").style.display === "none") {
-    onListPopupOpen();
-  } else {
-    onListPopupClose();
+  if (document.querySelector(".listPopupContainer")) {
+    document.querySelectorAll(".listPopupContainer").forEach((item) => {
+      if (item.style.display === "none") {
+        onListPopupOpen();
+      } else {
+        onListPopupClose();
+      }
+    });
   }
 };
 
 const onListPopupOpen = () => {
-  $("#listPopupContainer").attr("style", "display: block");
+  $(".listPopupContainer").attr("style", "display: block");
 };
 
 const onListPopupClose = () => {
-  $("#listPopupContainer").attr("style", "display: none");
+  $(".listPopupContainer").attr("style", "display: none");
 };
 
 const onSelectListItem = (e) => {
@@ -227,7 +261,6 @@ const onFilterHTMLContent = (sdk) => {
 
         if (!exist) {
           localStorageData.push(obj);
-          setLabelOnThread(sdk);
         }
       }, timeout);
     });
@@ -236,6 +269,7 @@ const onFilterHTMLContent = (sdk) => {
   let dataInsertionInterval = setInterval(() => {
     globalCounter += 1000;
     injectClasses(getSelectedItem());
+    setLabelOnThread(sdk);
 
     if (
       globalCounter > 20000 &&
@@ -310,7 +344,7 @@ const injectClasses = (selectedItem) => {
               result
                 ? result.content === "false"
                   ? "Preview not available..."
-                  : result.content.slice(0, 108)
+                  : result.content.slice(0, 125)
                 : "Loading..."
             }
             </p>
@@ -331,7 +365,7 @@ const injectClasses = (selectedItem) => {
               result
                 ? result.content === "false"
                   ? "Preview not available..."
-                  : result.content.slice(0, 220)
+                  : result.content.slice(0, 250)
                 : "Loading..."
             }
             </p>
@@ -414,6 +448,24 @@ const removeAdEmails = () => {
     .forEach((threadRow) => {
       if (threadRow.querySelector(`[role="gridcell"] .aPd.am0.aRC .ast`)) {
         threadRow.remove();
+      }
+    });
+};
+
+const removeAllLabels = () => {
+  document
+    .querySelectorAll("[data-inboxsdk-thread-row='true']")
+    .forEach((threadRow) => {
+      if (
+        threadRow.querySelector(
+          `[role="gridcell"] .inboxsdk__gmail_label.ar.as.inboxsdk__thread_row_label`
+        )
+      ) {
+        threadRow
+          .querySelectorAll(
+            `[role="gridcell"] .inboxsdk__gmail_label.ar.as.inboxsdk__thread_row_label`
+          )
+          .forEach((item) => item.remove());
       }
     });
 };
