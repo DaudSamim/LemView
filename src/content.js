@@ -272,7 +272,7 @@ const onFilterHTMLContent = (sdk) => {
     setLabelOnThread(sdk);
 
     if (
-      globalCounter > 20000 &&
+      globalCounter > 50000 &&
       localStorageData.length > threadIdArray.length - 5
     ) {
       clearInterval(dataInsertionInterval);
