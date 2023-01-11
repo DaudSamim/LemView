@@ -14,6 +14,7 @@ window.setImmediate = window.setTimeout;
 
 var threadIdArray = [];
 var localStorageData = [];
+var originalData = [];
 let globalCounter = 0;
 
 var request_counter = 0;
@@ -56,6 +57,7 @@ const pickAndStoreFirstThreadId = (sdk, rowClass) => {
       globalCounter = 0;
 
       getAllThreadIds(sdk.Lists);
+      getAllOriginalData();
       localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
 
       setTimeout(() => {
@@ -112,6 +114,7 @@ const onLoadSetup = (sdk) => {
       setSelectedItem(DROPDOWN_ITEMS.ITEM_ONE);
     }
 
+    getAllOriginalData();
     onFilterHTMLContent(sdk);
 
     if (
@@ -236,6 +239,36 @@ const getAllThreadIds = (list) => {
 
 /************ Ending Get all Thread Ids Module ************/
 
+/************ Start Get all Thread Ids Module ************/
+
+const getAllOriginalData = () => {
+  document
+    .querySelectorAll("[data-inboxsdk-thread-row='true']")
+    .forEach((threadRow) => {
+      if (threadRow.querySelector("[data-legacy-thread-id]")) {
+        let messageId = threadRow
+          .querySelector("[data-legacy-thread-id]")
+          .getAttribute("data-legacy-thread-id");
+
+        let message = threadRow
+          .querySelector(".y2")
+          .textContent.replace(/^\s*$(?:\r\n?|\n)/gm, "    ")
+          .replace("-", "");
+
+        let obj = {
+          id: messageId,
+          content: message,
+          html: null,
+          showLabel: false,
+        };
+
+        originalData.push(obj);
+      }
+    });
+};
+
+/************ Ending Get all Thread Ids Module ************/
+
 /************ Start Filter HTML Content Module ************/
 
 const onFilterHTMLContent = (sdk) => {
@@ -246,21 +279,30 @@ const onFilterHTMLContent = (sdk) => {
       fn_reset_request_counter();
 
       setTimeout(async () => {
-        const getEmailResponse = await onGetThreadMessage(item);
-        const response = await parse(getEmailResponse);
-        fn_decrease_request_counter();
+        try {
+          const getEmailResponse = await onGetThreadMessage(item);
+          const response = await parse(getEmailResponse);
+          fn_decrease_request_counter();
 
-        let obj = {
-          id: item,
-          content: fn_get_plain_text_from_email_original_content(response).text,
-          html: fn_get_plain_text_from_email_original_content(response).html,
-          showLabel: false,
-        };
+          let obj = {
+            id: item,
+            content:
+              fn_get_plain_text_from_email_original_content(response).text,
+            html: fn_get_plain_text_from_email_original_content(response).html,
+            showLabel: false,
+          };
 
-        const exist = localStorageData.includes(item);
+          const exist = localStorageData.includes(item);
 
-        if (!exist) {
-          localStorageData.push(obj);
+          if (!exist) {
+            localStorageData.push(obj);
+          }
+        } catch (error) {
+          let findData = originalData.find((data) => data.id === item);
+          const exist = localStorageData.includes(item);
+          if (!exist) {
+            localStorageData.push(findData);
+          }
         }
       }, timeout);
     });
@@ -272,7 +314,7 @@ const onFilterHTMLContent = (sdk) => {
     setLabelOnThread(sdk);
 
     if (
-      globalCounter > 50000 &&
+      globalCounter > 25000 &&
       localStorageData.length > threadIdArray.length - 5
     ) {
       clearInterval(dataInsertionInterval);
@@ -308,6 +350,12 @@ const injectClasses = (selectedItem) => {
 
         let messageParagraph = threadRow.querySelector(".y2");
 
+        let previousMessage = threadRow
+          .querySelector(".y2")
+          .textContent.replace(/^\s*$(?:\r\n?|\n)/gm, "    ")
+          .replace("-", "")
+          .trim();
+
         let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
 
         var result = localStorageData.find((obj) => {
@@ -322,10 +370,12 @@ const injectClasses = (selectedItem) => {
             <span class="Zt">&nbsp;-&nbsp;</span>
               ${
                 result
-                  ? result.content === "false"
-                    ? "Preview not available..."
-                    : result.content
-                  : "Loading..."
+                  ? result.content
+                    ? result.content === "false"
+                      ? previousMessage
+                      : result.content
+                    : previousMessage
+                  : previousMessage
               }
             `;
         }
@@ -342,10 +392,12 @@ const injectClasses = (selectedItem) => {
             <p class="messageText">
             ${
               result
-                ? result.content === "false"
-                  ? "Preview not available..."
-                  : result.content.slice(0, 125)
-                : "Loading..."
+                ? result.content
+                  ? result.content === "false"
+                    ? previousMessage
+                    : result.content.slice(0, 125)
+                  : previousMessage
+                : previousMessage
             }
             </p>
           `;
@@ -363,10 +415,12 @@ const injectClasses = (selectedItem) => {
             <p class="messageText">
             ${
               result
-                ? result.content === "false"
-                  ? "Preview not available..."
-                  : result.content.slice(0, 250)
-                : "Loading..."
+                ? result.content
+                  ? result.content === "false"
+                    ? previousMessage
+                    : result.content.slice(0, 250)
+                  : previousMessage
+                : previousMessage
             }
             </p>
           `;
@@ -384,14 +438,27 @@ const injectClasses = (selectedItem) => {
             <p class="messageText">
             ${
               result
-                ? !result.content
-                  ? "Preview not available..."
-                  : result.content.slice(0, 345)
-                : "Loading..."
+                ? result.content
+                  ? result.content === "false"
+                    ? previousMessage
+                    : result.content.slice(0, 345)
+                  : previousMessage
+                : previousMessage
             }
             </p>
           `;
         }
+
+        var parent_div = $('<div class="gmail__iframe__scroll"></div>').attr(
+          "style",
+          "color:#222;font:small/1.5 Arial,Helvetica,sans-serif;line-height:1.5em; word-break: break-all; overflow-wrap: break-word; hyphens: auto; overflow:hidden; width:100%; height:100%"
+        );
+
+        var child_div = $(
+          '<div style="-webkit-transform: scale(.7);-webkit-transform-origin: 0 0;width: 143%;margin:5px; overflow: hidden"></div>'
+        ).html(fn_clean_tracker_images(result && result.html));
+
+        parent_div.append(child_div);
 
         eyeIcon.addEventListener("mouseover", (e) => {
           e.currentTarget.setAttribute("style", "position: relative;");
@@ -407,17 +474,6 @@ const injectClasses = (selectedItem) => {
               <iframe border='0' width='100%' height='100%'></iframe>
             </div>
           `;
-
-          var parent_div = $('<div class="gmail__iframe__scroll"></div>').attr(
-            "style",
-            "color:#222;font:small/1.5 Arial,Helvetica,sans-serif;line-height:1.5em; word-break: break-all; overflow-wrap: break-word; hyphens: auto; overflow:hidden; width:100%; height:100%"
-          );
-
-          var child_div = $(
-            '<div style="-webkit-transform: scale(.7);-webkit-transform-origin: 0 0;width: 143%;margin:5px; overflow: hidden"></div>'
-          ).html(fn_clean_tracker_images(result && result.html));
-
-          parent_div.append(child_div);
 
           $(`[data-message-id="${result && result.id}"] > iframe`)
             .contents()
@@ -574,7 +630,10 @@ const setLabelOnThread = (sdk) => {
   sdk.Lists.registerThreadRowViewHandler((list) => {
     var result = localStorageData.find((obj) => obj.id === list.getThreadID());
 
-    result && result.content !== "false" && result.showLabel === false
+    result &&
+    result.content &&
+    result.content !== "false" &&
+    result.showLabel === false
       ? list.addLabel({
           title: calculateThreadReadingTime(HTMLBodyParser(result.content)),
           foregroundColor: "#E3E3E3",
@@ -582,7 +641,10 @@ const setLabelOnThread = (sdk) => {
         })
       : "";
 
-    result && result.content !== "false" && result.showLabel === false
+    result &&
+    result.content &&
+    result.content !== "false" &&
+    result.showLabel === false
       ? list.addLabel({
           title: `${HTMLBodyParser(result.content).length} Words`,
           foregroundColor: "#E3E3E3",
