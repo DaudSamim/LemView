@@ -23,7 +23,7 @@ var settimeout_for_request_counter_reset = null;
 InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
   onLoadSetup(sdk);
   getAllThreadIds(sdk.Lists);
-  setEyeIconOnThread(sdk.Lists);
+  // setEyeIconOnThread(sdk.Lists);
 });
 
 /************ Start Load Initial Setup Module ************/
@@ -288,7 +288,9 @@ const onFilterHTMLContent = (sdk) => {
             id: item,
             content:
               fn_get_plain_text_from_email_original_content(response).text,
-            html: fn_get_plain_text_from_email_original_content(response).html,
+            // html: fn_get_plain_text_from_email_original_content(response).html,
+            // content: '',
+            html: "",
             showLabel: false,
           };
 
@@ -356,7 +358,7 @@ const injectClasses = (selectedItem) => {
           .replace("-", "")
           .trim();
 
-        let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
+        // let eyeIcon = threadRow.querySelector(".inboxsdk__thread_row_button");
 
         var result = localStorageData.find((obj) => {
           return obj.id === messageId;
@@ -460,38 +462,38 @@ const injectClasses = (selectedItem) => {
 
         parent_div.append(child_div);
 
-        eyeIcon.addEventListener("mouseover", (e) => {
-          e.currentTarget.setAttribute("style", "position: relative;");
-          e.currentTarget.innerHTML = `
-            <div class="inboxsdk__button_icon">
-              <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-            </div>
-            <div class="full_preview_message" data-message-id="${
-              result && result.id
-            }" style="width: ${threadRow.clientWidth - 15}px; left: -${
-            threadRow.clientWidth - 200
-          }px">
-              <iframe border='0' width='100%' height='100%'></iframe>
-            </div>
-          `;
+        //     eyeIcon.addEventListener("mouseover", (e) => {
+        //       e.currentTarget.setAttribute("style", "position: relative;");
+        //       e.currentTarget.innerHTML = `
+        //         <div class="inboxsdk__button_icon">
+        //           <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
+        //         </div>
+        //         <div class="full_preview_message" data-message-id="${
+        //           result && result.id
+        //         }" style="width: ${threadRow.clientWidth - 15}px; left: -${
+        //         threadRow.clientWidth - 200
+        //       }px">
+        //           <iframe border='0' width='100%' height='100%'></iframe>
+        //         </div>
+        //       `;
 
-          $(`[data-message-id="${result && result.id}"] > iframe`)
-            .contents()
-            .find("body")
-            .attr(
-              "style",
-              "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
-            )
-            .append(parent_div);
-        });
+        //       $(`[data-message-id="${result && result.id}"] > iframe`)
+        //         .contents()
+        //         .find("body")
+        //         .attr(
+        //           "style",
+        //           "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
+        //         )
+        //         .append(parent_div);
+        //     });
 
-        eyeIcon.addEventListener("mouseout", (e) => {
-          e.currentTarget.innerHTML = `
-            <div class="inboxsdk__button_icon">
-              <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-            </div>
-          `;
-        });
+        //     eyeIcon.addEventListener("mouseout", (e) => {
+        //       e.currentTarget.innerHTML = `
+        //         <div class="inboxsdk__button_icon">
+        //           <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
+        //         </div>
+        //       `;
+        //     });
       }
     });
 };
@@ -690,6 +692,8 @@ function fn_get_plain_text_from_email_original_content_of_html(content) {
   var outer = $("<outer></outer>");
   outer.html(html_txt);
   outer.find("img").remove();
+  outer.find("a").remove();
+  outer.find("span").remove();
 
   var element = outer.get(0);
   text = element.innerText || element.textContent;
@@ -707,14 +711,27 @@ function fn_remove_html_tags(html) {
 function fn_get_plain_text_from_email_original_content(content) {
   var text = "";
   if (content.text && content.text.trim() !== "") {
-    text = content.text.trim();
+    // text = content.text.trim();
+    text = fn_get_plain_text_from_email_original_content_of_html(content.html);
   } else if (content.html) {
     text = fn_get_plain_text_from_email_original_content_of_html(content.html);
   }
   //sometimes it still keeps the html tags, remove those tags
   text = fn_remove_html_tags(text);
-  var html = content.html ? content.html : content.textAsHtml;
-  return { text: text.replace(/^\s*$(?:\r\n?|\n)/gm, "    "), html: html };
+  // var html = content.html ? content.html : content.textAsHtml;
+  var html = null;
+
+  // html.querySelectorAll('a').forEach((row)=>{
+  //   row.href = '';
+  // })
+
+  return {
+    text: text
+      .toString()
+      .replace(/^\s*$(?:\r\n?|\n)/gm, "    ")
+      .replace(/(^\w+:|^)\/\//, ""),
+    html: html,
+  };
 }
 
 function fn_check_in_known_websites(imgurl) {
@@ -763,6 +780,10 @@ function fn_clean_tracker_images(html) {
   outer.html(html);
   try {
     var images = outer.find("img");
+
+    outer.find("a").remove();
+    outer.find("span").remove();
+
     $.each(images, function (k, img) {
       if (img) {
         var img_src = $(img).attr("src");
