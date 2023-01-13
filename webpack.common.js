@@ -3,12 +3,14 @@
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+const HtmlPlugin = require("html-webpack-plugin");
 
 module.exports = {
   entry: {
-    content: "./src/content.js",
+    content: "./src/contentScript/index.js",
     pageWorld: "@inboxsdk/core/pageWorld.js",
     background: "@inboxsdk/core/background.js",
+    popup: "./src/popup/index.js",
   },
   module: {
     rules: [
@@ -50,6 +52,11 @@ module.exports = {
       patterns: [{ from: "static" }],
     }),
     new NodePolyfillPlugin(),
+    new HtmlPlugin({
+      filename: "popup.html",
+      template: path.resolve("./src/popup/index.html"),
+      chunks: ["popup"],
+    }),
   ],
   resolve: {
     fallback: {

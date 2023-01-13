@@ -1,14 +1,14 @@
 import * as InboxSDK from "@inboxsdk/core";
 import $ from "jquery";
-import "./styles/index.scss";
+import "../styles/index.scss";
 import {
   DROPDOWN_ITEMS,
   g_black_listed_string_params,
   g_black_listed_websites,
-} from "./constants";
-import { getThreadEndpoint } from "./api/endpoints/gmail";
+} from "../constants";
+import { getThreadEndpoint } from "../api/endpoints/gmail/index";
 import parse from "parse-email";
-import { getSelectedItem, setSelectedItem } from "./localStorage";
+import { getSelectedItem, setSelectedItem } from "../localStorage/index";
 
 window.setImmediate = window.setTimeout;
 

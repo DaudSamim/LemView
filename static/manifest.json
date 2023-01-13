@@ -2,12 +2,18 @@
   "name": "Example Gmail Extension",
   "description": "Example extension showing use of the Streak Gmail SDK",
   "version": "0.1",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LemView"
+  },
   "content_scripts": [
     {
       "matches": [
         "https://mail.google.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
