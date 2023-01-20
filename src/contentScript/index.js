@@ -16,53 +16,127 @@ var threadIdArray = [];
 var localStorageData = [];
 var originalData = [];
 let globalCounter = 0;
+var sdk_global = null;
 
 var request_counter = 0;
 var settimeout_for_request_counter_reset = null;
+var checked_global = true;
 
 InboxSDK.load(2, "sdk_gmail-message_90905ac7ac").then(async (sdk) => {
-  onLoadSetup(sdk);
-  getAllThreadIds(sdk.Lists);
+  const initialInterval = setInterval(() => {
+    if (
+      document.querySelector(
+        ".D.E.G-atb[gh='tm'] [data-toolbar-icononly='true']"
+      )
+    ) {
+      removeAllToolbars();
+      setToolbarButton();
+      clearInterval(initialInterval);
+    }
+
+    if (localStorage.getItem("checkbox") == "checked") {
+      if (document.getElementsByClassName("listToolbarContainer")[0]) {
+        document.getElementsByClassName(
+          "listToolbarContainer"
+        )[0].style.display = "block";
+      }
+      onLoadSetup(sdk);
+      getAllThreadIds(sdk.Lists);
+    } else {
+      if (document.getElementsByClassName("listToolbarContainer")[0]) {
+        document.getElementsByClassName(
+          "listToolbarContainer"
+        )[0].style.display = "none";
+      }
+    }
+  }, 500);
+
+  sdk_global = sdk;
   // setEyeIconOnThread(sdk.Lists);
 });
 
 /************ Start Load Initial Setup Module ************/
 
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (msg.type == "checked") {
+    localStorage.setItem("checkbox", msg.type);
+
+    var list_no = localStorage.getItem("selectedItem");
+    onLoadGmailThread(DROPDOWN_ITEMS.list_no);
+    if (document.getElementsByClassName("listToolbarContainer")[0]) {
+      document.getElementsByClassName("listToolbarContainer")[0].style.display =
+        "block";
+    }
+    onLoadSetup(sdk_global);
+    getAllThreadIds(sdk_global.Lists);
+
+    checked_global = true;
+  } else if (msg.type == "unchecked") {
+    localStorage.setItem("checkbox", msg.type);
+
+    onLoadGmailThread(DROPDOWN_ITEMS.ITEM_ONE);
+    if (document.getElementsByClassName("listToolbarContainer")[0]) {
+      document.getElementsByClassName("listToolbarContainer")[0].style.display =
+        "none";
+    }
+
+    removeAllLabels();
+    localStorageData.map((item) => (item.showLabel = false));
+
+    if (document.getElementsByClassName("listPopupItem--active")[0]) {
+      document
+        .getElementsByClassName("listPopupItem--active")[0]
+        .classList.remove("listPopupItem--active");
+    }
+    checked_global = false;
+
+    removeAllLabels();
+    removeAllToolbars();
+
+    localStorageData = [];
+    threadIdArray = [];
+    request_counter = 0;
+    globalCounter = 0;
+  }
+});
+
 const pickAndStoreFirstThreadId = (sdk, rowClass) => {
-  let splitURL = window.location.href.split("#");
+  if (localStorage.getItem("checkbox") == "checked") {
+    let splitURL = window.location.href.split("#");
 
-  if (document.querySelector(`${rowClass} [data-legacy-thread-id]`)) {
-    let thread_row = document.querySelectorAll(
-      `${rowClass} [data-legacy-thread-id]`
-    );
+    if (document.querySelector(`${rowClass} [data-legacy-thread-id]`)) {
+      let thread_row = document.querySelectorAll(
+        `${rowClass} [data-legacy-thread-id]`
+      );
 
-    var temp_thread_id =
-      thread_row.item(0).getAttribute("data-legacy-thread-id") ||
-      thread_row.item(1).getAttribute("data-legacy-thread-id") ||
-      thread_row.item(2).getAttribute("data-legacy-thread-id") ||
-      thread_row.item(3).getAttribute("data-legacy-thread-id");
+      var temp_thread_id =
+        thread_row.item(0).getAttribute("data-legacy-thread-id") ||
+        thread_row.item(1).getAttribute("data-legacy-thread-id") ||
+        thread_row.item(2).getAttribute("data-legacy-thread-id") ||
+        thread_row.item(3).getAttribute("data-legacy-thread-id");
 
-    if (!localStorage.getItem(`${splitURL[0]}`)) {
-      if (temp_thread_id != localStorage.getItem(`${splitURL[0]}`)) {
+      if (!localStorage.getItem(`${splitURL[0]}`)) {
+        if (temp_thread_id != localStorage.getItem(`${splitURL[0]}`)) {
+          localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
+        }
+      } else if (localStorage.getItem(`${splitURL[0]}`) != temp_thread_id) {
+        removeAllLabels();
+        removeAllToolbars();
+        injectToolbar();
+
+        localStorageData = [];
+        threadIdArray = [];
+        request_counter = 0;
+        globalCounter = 0;
+
+        getAllThreadIds(sdk.Lists);
+        getAllOriginalData();
         localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
+
+        setTimeout(() => {
+          onFilterHTMLContent(sdk);
+        }, 2000);
       }
-    } else if (localStorage.getItem(`${splitURL[0]}`) != temp_thread_id) {
-      removeAllLabels();
-      removeAllToolbars();
-      injectToolbar();
-
-      localStorageData = [];
-      threadIdArray = [];
-      request_counter = 0;
-      globalCounter = 0;
-
-      getAllThreadIds(sdk.Lists);
-      getAllOriginalData();
-      localStorage.setItem(`${splitURL[0]}`, temp_thread_id);
-
-      setTimeout(() => {
-        onFilterHTMLContent(sdk);
-      }, 2000);
     }
   }
 };
@@ -83,11 +157,34 @@ const removeAllToolbars = () => {
   });
 };
 
+const removeExtraLabels = () => {
+  document
+    .querySelectorAll("[data-inboxsdk-thread-row='true']")
+    .forEach((threadRow) => {
+      if (threadRow.querySelector("[data-legacy-thread-id]")) {
+        let parent_div = threadRow.querySelector(
+          "[role='gridcell'] [role='link'] .xT"
+        );
+
+        let getLabelsDiv = parent_div.querySelectorAll(
+          ".inboxsdk__gmail_label"
+        );
+
+        if (getLabelsDiv.length > 2) {
+          for (let i = 0; i < getLabelsDiv.length - 2; i++) {
+            getLabelsDiv[i].remove();
+          }
+        }
+      }
+    });
+};
+
 const onLoadSetup = (sdk) => {
   setInterval(() => {
     let splitURL = window.location.href.split("#");
 
     removeAdEmails();
+    removeExtraLabels();
 
     if (splitURL[1] === "inbox")
       pickAndStoreFirstThreadId(sdk, ".BltHke.nH.oy8Mbf[role='main']");
@@ -443,7 +540,7 @@ const injectClasses = (selectedItem) => {
                 ? result.content
                   ? result.content === "false"
                     ? previousMessage
-                    : result.content.slice(0, 345)
+                    : result.content.slice(0, 350)
                   : previousMessage
                 : previousMessage
             }
@@ -461,39 +558,6 @@ const injectClasses = (selectedItem) => {
         ).html(fn_clean_tracker_images(result && result.html));
 
         parent_div.append(child_div);
-
-        //     eyeIcon.addEventListener("mouseover", (e) => {
-        //       e.currentTarget.setAttribute("style", "position: relative;");
-        //       e.currentTarget.innerHTML = `
-        //         <div class="inboxsdk__button_icon">
-        //           <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-        //         </div>
-        //         <div class="full_preview_message" data-message-id="${
-        //           result && result.id
-        //         }" style="width: ${threadRow.clientWidth - 15}px; left: -${
-        //         threadRow.clientWidth - 200
-        //       }px">
-        //           <iframe border='0' width='100%' height='100%'></iframe>
-        //         </div>
-        //       `;
-
-        //       $(`[data-message-id="${result && result.id}"] > iframe`)
-        //         .contents()
-        //         .find("body")
-        //         .attr(
-        //           "style",
-        //           "padding: 0px !important;margin: 0px !important;width: 100% !important;height: 100% !important; overflow:hidden;"
-        //         )
-        //         .append(parent_div);
-        //     });
-
-        //     eyeIcon.addEventListener("mouseout", (e) => {
-        //       e.currentTarget.innerHTML = `
-        //         <div class="inboxsdk__button_icon">
-        //           <img class="inboxsdk__button_iconImg" src="https://res.cloudinary.com/the-fastech/image/upload/v1672640397/view_qt43wn.png">
-        //         </div>
-        //       `;
-        //     });
       }
     });
 };
@@ -635,7 +699,8 @@ const setLabelOnThread = (sdk) => {
     result &&
     result.content &&
     result.content !== "false" &&
-    result.showLabel === false
+    result.showLabel === false &&
+    localStorage.getItem("checkbox") == "checked"
       ? list.addLabel({
           title: calculateThreadReadingTime(HTMLBodyParser(result.content)),
           foregroundColor: "#E3E3E3",
@@ -646,7 +711,8 @@ const setLabelOnThread = (sdk) => {
     result &&
     result.content &&
     result.content !== "false" &&
-    result.showLabel === false
+    result.showLabel === false &&
+    localStorage.getItem("checkbox") == "checked"
       ? list.addLabel({
           title: `${HTMLBodyParser(result.content).length} Words`,
           foregroundColor: "#E3E3E3",
@@ -696,9 +762,14 @@ function fn_get_plain_text_from_email_original_content_of_html(content) {
   outer.find("span").remove();
 
   var element = outer.get(0);
-  text = element.innerText || element.textContent;
+  element.querySelectorAll("div").forEach((row) => {
+    text += row.innerText;
+  });
 
-  return text.trim();
+  return text
+    .trim()
+    .replace(/\&nbsp;/g, "")
+    .replace(/^\s*$(?:\r\n?|\n)/gm, " ");
 }
 
 function fn_remove_html_tags(html) {
